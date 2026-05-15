@@ -1,11 +1,29 @@
 import tkinter as tk
+import json
 ###mirar como funciona flask 
 
-clientes = {
-    "Juan": {"edad": 24, "sexo": "Masc", "meta": "Ganancia de masa muscular"},
-    "Pepe": {"edad": 37, "sexo": "Masc", "meta": "Pérdida de grasa"},
-    "Luisa": {"edad": 32, "sexo": "Fem", "meta": "Aumento de la fuerza"}
-}
+Clientes = 'clientes.json'
+Clientes_eliminados = 'clientes_eliminados.json'
+
+try:
+    with open(Clientes, "r", encoding='utf-8') as archivo:
+        clientes = json.load(archivo)
+except (FileNotFoundError, json.JSONDecodeError):
+    clientes = {}
+
+try:
+    with open(Clientes_eliminados, "r", encoding='utf-8') as archivo:
+        clientes_eliminados = json.load(archivo)
+except (FileNotFoundError, json.JSONDecodeError):
+    clientes_eliminados = {}
+
+def guardar_en_json():
+    with open(Clientes, "w", encoding='utf-8') as archivo:
+        json.dump(clientes, archivo, indent=4, ensure_ascii=False)
+
+def guardar_eliminados_en_json():
+    with open(Clientes_eliminados, "w", encoding='utf-8') as archivo:
+        json.dump(clientes_eliminados, archivo, indent=4, ensure_ascii=False)
 
 def mostrar_clientes():
     campo.delete("1.0", tk.END)
@@ -18,7 +36,7 @@ def mostrar_clientes():
         campo.insert(tk.END, info +  "\n")
     
 def agregar_cliente():
-    nombre = entrada_cliente.get().strip()
+    nombre = entrada_cliente.get().strip().title()
     edad = entrada_edad.get().strip()
     sexo = entrada_sexo.get().strip()
     meta = entrada_meta.get().strip()
@@ -28,6 +46,7 @@ def agregar_cliente():
             "sexo": sexo,
             "meta": meta
         }
+        guardar_en_json()
         entrada_cliente.delete(0, tk.END)
         entrada_edad.delete(0, tk.END)
         entrada_sexo.delete(0, tk.END)
@@ -36,12 +55,11 @@ def agregar_cliente():
     else:
         return None
 
-clientes_eliminados = {}
-
 def eliminar_cliente():
     nombre = entrada_cliente.get().strip().title()
     if nombre in clientes:
         datos_eliminados = clientes.pop(nombre)
+        guardar_eliminados_en_json()
         clientes_eliminados[nombre] = datos_eliminados
         mostrar_clientes()
         campo.insert(tk.END, f"Se ha movido a la papelera a: {nombre}")
