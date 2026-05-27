@@ -1,34 +1,33 @@
 ﻿import flet as ft
-import json
+import sqlite3
 from flet import Colors
 
-Ruta_Clientes = "clientes.json"
-Ruta_Clientes_Eliminados = "clientes_eliminados.json"
+def conectar_db():
+    conexion = sqlite3.connect("gymflow.db")
+    conexion.row_factory = sqlite3.Row
+    return conexion
 
-try:
-    with open("clientes.json", "r") as f:
-        contenido_clientes = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError):
-    contenido_clientes = {
-        "Juan": {"Edad": "30", "Peso": "80", "Sexo": "M", "Meta": "Ganar masa muscular"},
-        "Maria": {"Edad": "25", "Peso": "60", "Sexo": "F", "Meta": "Perder peso"}
-    }
-
-try:
-     with open("clientes_eliminados.json", "r") as f:
-        contenido_eliminados = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError):
-    contenido_eliminados = {}
-
-def guardar_en_json():
-     with open("clientes.json", "w", encoding="utf-8") as f:
-          json.dump(contenido_clientes, f, indent=4, ensure_ascii=False)
-
-def guardar_eliminados_en_json():
-     with open("clientes_eliminados.json", "w", encoding="utf-8") as f:
-          json.dump(contenido_eliminados, f, indent=4, ensure_ascii=False)
+def inicializar_db():
+    conexion = conectar_db()
+    cursor = conexion.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Usuarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            edad INTEGER,
+            peso REAL,
+            sexo TEXT,
+            objetivo_patologias TEXT,
+            activo BOOLEAN DEFAULT 1
+        );
+    """)
+    conexion.commit()
+    cursor.close()
+    conexion.close()
 
 async def main(page: ft.Page):
+    inicializar_db()
+
     page.title= "PT OS - Python - Flet"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
@@ -38,10 +37,10 @@ async def main(page: ft.Page):
     entrada_peso = ft.TextField(label="Peso", keyboard_type=ft.KeyboardType.NUMBER, width=250)
     entrada_sexo = ft.TextField(label="Sexo (M/F)", capitalization=ft.TextCapitalization.CHARACTERS, width=250)
     entrada_meta = ft.Dropdown(label="Objetivo", width=250, options=[
-        ft.dropdown.Option("perder_peso", "Perder peso"),
-        ft.dropdown.Option("ganar_musculo", "Ganar masa muscular"),
-        ft.dropdown.Option("ganar_fuerza", "Aumento de la fuerza"),
-        ft.dropdown.Option("mejor_rend", "Mejorar rendimiento deportivo")
+        ft.dropdown.Option("Perder peso", "Perder peso"),
+        ft.dropdown.Option("Ganar masa muscular", "Ganar masa muscular"),
+        ft.dropdown.Option("Aumento de la fuerza", "Aumento de la fuerza"),
+        ft.dropdown.Option("Mejorar rendimiento deportivo", "Mejorar rendimiento deportivo")
     ]
     )
 
@@ -49,20 +48,36 @@ async def main(page: ft.Page):
         await page.push_route("/clientes")
 
     async def eliminar_cliente(e):
-        if entrada_nombre in contenido_clientes:
-            eliminado = contenido_clientes.pop(entrada_nombre)
-            contenido_eliminados[entrada_nombre] = eliminado
-            guardar_eliminados_en_json()
-            guardar_en_json()
-            entrada_nombre.value = ""
-            page.dialog = ft.AlertDialog(content=ft.Text(f"El cliente {entrada_nombre} ha sido movido a la papelera"))
-        elif entrada_nombre in contenido_eliminados:
-            page.dialog = ft.AlertDialog(content=ft.Text(f"El cliente {entrada_nombre} ya se encuentra en la papelera"))
-        elif entrada_nombre not in contenido_clientes:
-            page.dialog = ft.AlertDialog(content=ft.Text(f"El cliente {entrada_nombre} no existe"))
+        nombre = entrada_nombre.value.strip().title()
+        if nombre:
+            try:
+                conexion = conectar_db()
+                cursor = conexion.cursor()
+                cursor.execute("SELECT id, activo FROM Usuarios WHERE nombre = ?;", (nombre,))
+                resultado = cursor.fetchone()
+                if resultado:
+                    usuario_id = resultado["id"]
+                    activo = resultado["activo"]
+                    if activo == 0:
+                        page.dialog = ft.AlertDialog(content=ft.Text(f"El cliente {nombre} ya se encuentra en la papelera"))
+                    else:
+                        cursor.execute("UPDATE Usuarios SET activo = FALSE WHERE id = ?;", (usuario_id,))
+                        conexion.commit()
+                        entrada_nombre.value = ""
+                        page.dialog = ft.AlertDialog(content=ft.Text(f"El cliente {nombre} se ha movido a la papelera"))
+                else:
+                    page.dialog = ft.AlertDialog(content=ft.Text(f"El cliente {nombre} no existe"))
+            except sqlite3.Error as err:
+                page.dialog = ft.AlertDialog(content=ft.Text(f"Error: {err}"))
+            finally:
+                if 'conexion' in locals():
+                    cursor.close()
+                    conexion.close()
+        else:
+            page.dialog = ft.AlertDialog(content=ft.Text(f"Por favor, escriba el nombre del usuario que quiera eliminar"))
         page.dialog.open = True
-        await page.update()
-
+        page.update()
+    
     async def agregar_cliente(e):
         nombre = entrada_nombre.value.strip().title()
         edad = entrada_edad.value.strip()
@@ -70,27 +85,33 @@ async def main(page: ft.Page):
         sexo = entrada_sexo.value.strip().upper()
         meta = entrada_meta.value 
         if nombre and edad and peso and sexo and meta:
-            contenido_clientes[nombre] = {
-                  "Edad": edad,
-                  "Peso": peso,
-                  "Sexo": sexo,
-                  "Meta": meta,
-            }
-            guardar_en_json()
-            entrada_nombre.value = ""
-            entrada_edad.value = ""
-            entrada_peso.value = ""
-            entrada_sexo.value = ""
-            entrada_meta.value = ""
-        elif nombre in contenido_clientes:
-            page.dialog = ft.AlertDialog(content=ft.Text(f"Ya existe un usuario con el nombre {nombre}"))
-            page.dialog.open = True
-            await page.update()
+            try:
+                conexion = conectar_db()
+                cursor = conexion.cursor()
+                consulta = """
+                        INSERT INTO Usuarios (nombre, edad, peso, sexo, objetivo_patologias)
+                        VALUES (?, ?, ?, ?, ?)
+                    """
+                valores = (nombre, int(edad), float(peso), sexo, meta)
+                cursor.execute(consulta, valores)
+                conexion.commit()
 
+                entrada_nombre.value = ""
+                entrada_edad.value = ""
+                entrada_peso.value = ""
+                entrada_sexo.value = ""
+                entrada_meta.value = ""
+                page.dialog = ft.AlertDialog(content=ft.Text(f"Cliente {nombre} guardado en la base de datos con éxito."))
+            except sqlite3.Error as err:
+                 page.dialog = ft.AlertDialog(content=ft.Text(f"Error de conexión con la base de datos"))
+            finally:
+                 if 'conexion' in locals():
+                      cursor.close()
+                      conexion.close()
         else:
             page.dialog = ft.AlertDialog(content=ft.Text(f"Necesita rellenar todos los campos para crear un nuevo usuario"))
-            page.dialog.open = True
-            await page.update()
+        page.dialog.open = True
+        page.update()
     
     async def change_route(e):
             page.views.clear()
@@ -99,9 +120,8 @@ async def main(page: ft.Page):
             elif page.route == "/clientes":
                 page.views.append(vista_clientes(page))
             elif page.route.startswith("/cliente"):
-                nombre_seleccionado = page.route[9:]
-                if nombre_seleccionado in contenido_clientes:
-                    page.views.append(vista_detalle_cliente(page, nombre_seleccionado))
+                cliente_id = page.route[9:]
+                page.views.append(vista_detalle_cliente(page, cliente_id))
             page.update()
         
     def vista_inicial(page):
@@ -119,35 +139,68 @@ async def main(page: ft.Page):
             ])
         
     def vista_clientes(page):
-            return ft.View(route="/clientes", controls=[
-                ft.Text("Clientes: ", size=25, weight=ft.FontWeight.BOLD), 
-                *[ft.Container(content=ft.Column([
-                        ft.Text(f"{cliente}", size=16, weight=ft.FontWeight.BOLD),
-                    ]), 
-                    bgcolor=Colors.BLUE_200, 
-                    border_radius=12, 
-                    padding=16, 
-                    ink=True,
-                    on_click=lambda e, nombre=cliente: page.go(f"/cliente/{nombre}")
-                    ) for cliente in contenido_clientes],
-                    ft.Divider(color=Colors.GREY_800),
-                    ft.Button("Volver a Inicio", on_click=lambda e: page.go("/"))
-            ])
-    
-    def vista_detalle_cliente(page, nombre_cliente):
-         datos = contenido_clientes[nombre_cliente]
-         return ft.View(route=f"/cliente/{nombre_cliente}", controls=[
-              ft.AppBar(title=f"{nombre_cliente.title()}:", bgcolor=Colors.BLACK_87, color="white"),
-              ft.Divider(color=Colors.GREY_800),
-              ft.Column([
-                   ft.Text(f"Edad: {datos.get('Edad')}", size=18),
-                   ft.Text(f"Peso corporal actual: {datos.get('Peso')}", size=18),
-                   ft.Text(f"Sexo: {datos.get('Sexo')}", size=18),
-                   ft.Text(f"Objetivo: {datos.get('Meta')}", size=18)
+        lista_contenedores_clientes = []
+        try:
+            conexion = conectar_db()
+            cursor = conexion.cursor()
+            cursor.execute("SELECT id, nombre FROM Usuarios ORDER BY nombre ASC;")
+            usuarios = cursor.fetchall()
+
+            for usuario in usuarios:
+                uid, unombre = usuario
+                lista_contenedores_clientes.append(
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text(f"{unombre}", size=16, weight=ft.FontWeight.BOLD),
+                        ]), 
+                        bgcolor=Colors.BLUE_200, 
+                        border_radius=12, 
+                        padding=16, 
+                        ink=True,
+                        on_click=lambda e, id_atleta=uid: page.go(f"/cliente/{id_atleta}")
+                    )
+                )
+        except sqlite3.Error as err:
+            lista_contenedores_clientes.append(ft.Text(f"Error al cargar usuarios: {err}", color="red"))
+        finally:
+            if 'conexion' in locals():
+                cursor.close()
+                conexion.close()
+
+        return ft.View(route="/clientes", controls=[
+            ft.Text("Clientes en el Sistema: ", size=25, weight=ft.FontWeight.BOLD), 
+            *lista_contenedores_clientes,
+            ft.Divider(color=Colors.GREY_800),
+            ft.Button("Volver a Inicio", on_click=lambda e: page.go("/"))
+        ])
+        
+    def vista_detalle_cliente(page, id_cliente):
+        try:
+            conexion = conectar_db()
+            cursor = conexion.cursor()
+            cursor.execute("SELECT * FROM Usuarios WHERE id = ?;", (id_cliente,))
+            datos = cursor.fetchone()
+        except sqlite3.Error:
+            datos = None
+        finally:
+            if 'conexion' in locals():
+                cursor.close()
+                conexion.close()
+        if datos:
+            return ft.View(route=f"/cliente/{id_cliente}", controls=[
+                ft.AppBar(title=f"Ficha de {datos['nombre']}", bgcolor=Colors.BLACK_87, color="white"),
+                ft.Divider(color=Colors.GREY_800),
+                ft.Column([
+                    ft.Text(f"Edad: {datos['edad']} años", size=18),
+                    ft.Text(f"Peso corporal actual: {datos['peso']} kg", size=18),
+                    ft.Text(f"Sexo: {datos['sexo']}", size=18),
+                    ft.Text(f"Objetivo principal: {datos['objetivo_patologias']}", size=18)
                 ], spacing=12),
                 ft.Divider(color=Colors.GREY_800),
-                ft.Button("Volver atrás", on_click=mostrar_clientes, bgcolor=Colors.ORANGE_300, color="white")
-         ])
+                ft.Button("Volver atrás", on_click=lambda e: page.go("/clientes"), bgcolor=Colors.ORANGE_300, color="white")
+            ])
+        else:
+            return ft.View(route=f"/cliente/{id_cliente}", controls=[ft.Text("Cliente no encontrado.")])
 
     page.on_route_change = change_route
     page.views.append(vista_inicial(page))
