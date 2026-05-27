@@ -2,6 +2,7 @@
 import sqlite3
 from flet import Colors
 
+#CONFIGURACIÓN Y GESTIÓN DE SQLITE
 def conectar_db():
     conexion = sqlite3.connect("gymflow.db")
     conexion.row_factory = sqlite3.Row
@@ -25,13 +26,17 @@ def inicializar_db():
     cursor.close()
     conexion.close()
 
+
+#INTERFAZ DE FLET
 async def main(page: ft.Page):
+#INICIALIZAMOS DB
     inicializar_db()
 
+#AJUSTE DE VENTANA
     page.title= "PT OS - Python - Flet"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 20
-
+#INPUTS PARA DATOS NECESARIOS
     entrada_nombre = ft.TextField(label="Nombre", capitalization=ft.TextCapitalization.WORDS, width=250)
     entrada_edad = ft.TextField(label="Edad", keyboard_type=ft.KeyboardType.NUMBER, width=250)
     entrada_peso = ft.TextField(label="Peso", keyboard_type=ft.KeyboardType.NUMBER, width=250)
@@ -43,10 +48,13 @@ async def main(page: ft.Page):
         ft.dropdown.Option("Mejorar rendimiento deportivo", "Mejorar rendimiento deportivo")
     ]
     )
+#DEFINICIÓN DE LAS DISTINTAS FUNCIONES QUE SE PUEDEN REALIZAR
 
+#FUNCIÓN PARA IR A LA PÁGINA DONDE SE ENCUENTRAN TODOS LOS CLIENTES
     async def mostrar_clientes(e):
         await page.push_route("/clientes")
 
+#FUNCIÓN PARA ELIMINAR CLIENTES(ARCHIVADO)
     async def eliminar_cliente(e):
         nombre = entrada_nombre.value.strip().title()
         if nombre:
@@ -77,13 +85,15 @@ async def main(page: ft.Page):
             page.dialog = ft.AlertDialog(content=ft.Text(f"Por favor, escriba el nombre del usuario que quiera eliminar"))
         page.dialog.open = True
         page.update()
-    
+
+#FUNCIÓN PARA AGREGAR CLIENTES
     async def agregar_cliente(e):
         nombre = entrada_nombre.value.strip().title()
         edad = entrada_edad.value.strip()
         peso = entrada_peso.value.strip()
         sexo = entrada_sexo.value.strip().upper()
         meta = entrada_meta.value 
+        #DEBE RELLENAR TODOS LOS CAMPOS
         if nombre and edad and peso and sexo and meta:
             try:
                 conexion = conectar_db()
@@ -112,7 +122,8 @@ async def main(page: ft.Page):
             page.dialog = ft.AlertDialog(content=ft.Text(f"Necesita rellenar todos los campos para crear un nuevo usuario"))
         page.dialog.open = True
         page.update()
-    
+
+#FUNCIÓN PARA CAMBIAR DE PÁGINA
     async def change_route(e):
             page.views.clear()
             if page.route == "/":
@@ -123,7 +134,8 @@ async def main(page: ft.Page):
                 cliente_id = page.route[9:]
                 page.views.append(vista_detalle_cliente(page, cliente_id))
             page.update()
-        
+
+#VISTA PRINCIPAL     
     def vista_inicial(page):
             return ft.View(route="/", controls=[
                 ft.Text("Página principal", size=25, weight=ft.FontWeight.BOLD),
@@ -137,7 +149,8 @@ async def main(page: ft.Page):
                 ft.Button("Añadir Cliente", on_click=agregar_cliente, bgcolor=Colors.GREEN_300 , color="white"),
                 ft.Button("Eliminar Cliente", on_click=eliminar_cliente, bgcolor=Colors.RED_300, color="white")
             ])
-        
+    
+#VISTA DE LISTADO DE CLIENTES       
     def vista_clientes(page):
         lista_contenedores_clientes = []
         try:
@@ -157,6 +170,7 @@ async def main(page: ft.Page):
                         border_radius=12, 
                         padding=16, 
                         ink=True,
+                        #REDIRIGIR SEGÚN ID DEL CLIENTE
                         on_click=lambda e, id_atleta=uid: page.go(f"/cliente/{id_atleta}")
                     )
                 )
@@ -173,7 +187,8 @@ async def main(page: ft.Page):
             ft.Divider(color=Colors.GREY_800),
             ft.Button("Volver a Inicio", on_click=lambda e: page.go("/"))
         ])
-        
+    
+#VISTA TÉCINICA DE CADA CLIENTE Y SUS DATOS       
     def vista_detalle_cliente(page, id_cliente):
         try:
             conexion = conectar_db()
@@ -202,9 +217,11 @@ async def main(page: ft.Page):
         else:
             return ft.View(route=f"/cliente/{id_cliente}", controls=[ft.Text("Cliente no encontrado.")])
 
+#DEFINIR NAVEGACIÓN CON FLET
     page.on_route_change = change_route
     page.views.append(vista_inicial(page))
     page.update()
     await page.push_route(page.route)
 
+#INICIALIZAR APP EN MODO WEB LOCAL
 ft.run(main, view=ft.AppView.WEB_BROWSER)
