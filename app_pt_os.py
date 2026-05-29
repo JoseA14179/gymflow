@@ -1,6 +1,7 @@
 ﻿import flet as ft
 import sqlite3
 from flet import Colors
+from flet import Icon
 
 #CONFIGURACIÓN Y GESTIÓN DE SQLITE
 def conectar_db():
@@ -156,15 +157,21 @@ async def main(page: ft.Page):
         try:
             conexion = conectar_db()
             cursor = conexion.cursor()
-            cursor.execute("SELECT id, nombre FROM Usuarios ORDER BY nombre ASC;")
+            cursor.execute("SELECT * FROM Usuarios ORDER BY nombre ASC;")
             usuarios = cursor.fetchall()
 
             for usuario in usuarios:
-                uid, unombre = usuario
+                uid, unombre = usuario["id"], usuario["nombre"]
+                uedad = usuario["edad"]
+                usexo = usuario["sexo"]
+                upeso = usuario["peso"]
+                umeta = usuario["objetivo_patologias"]
                 lista_contenedores_clientes.append(
                     ft.Container(
                         content=ft.Column([
-                            ft.Text(f"{unombre}", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Icon(ft.Icons.PERSON_OUTLINE, color=ft.Colors.GREY_700, size=25),
+                            ft.Text(f"{unombre} | {uid}", size=16, weight=ft.FontWeight.BOLD),
+                            ft.Text(f"{uedad} años | {usexo} | {upeso} kg | {umeta}")
                         ]), 
                         bgcolor=Colors.BLUE_200, 
                         border_radius=12, 
