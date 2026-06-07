@@ -114,11 +114,11 @@ async def main(page: ft.Page):
                 entrada_meta.value = ""
                 page.dialog = ft.AlertDialog(content=ft.Text(f"Cliente {nombre} guardado en la base de datos con éxito."))
             except sqlite3.Error as err:
-                 page.dialog = ft.AlertDialog(content=ft.Text(f"Error de conexión con la base de datos"))
+                page.dialog = ft.AlertDialog(content=ft.Text(f"Error de conexión con la base de datos"))
             finally:
-                 if 'conexion' in locals():
-                      cursor.close()
-                      conexion.close()
+                if 'conexion' in locals():
+                    cursor.close()
+                    conexion.close()
         else:
             page.dialog = ft.AlertDialog(content=ft.Text(f"Necesita rellenar todos los campos para crear un nuevo usuario"))
         page.dialog.open = True
@@ -195,6 +195,36 @@ async def main(page: ft.Page):
             ft.Button("Volver a Inicio", on_click=lambda e: page.go("/"))
         ])
     
+    #CREACIÓN DE TABLAS PARA LOS ENTRENAMIENTOS DE LOS CLIENTES
+    def crear_tabla(nombre_cliente):
+        columnas = [
+            ft.DataColumn(ft.Text("Ejercicio")),
+            ft.DataColumn(ft.Text("Series")),
+            ft.DataColumn(ft.Text("Repeticiones")),
+            ft.DataColumn(ft.Text("Peso(kg)"))
+        ]
+
+        filas = [
+            ft.DataRow(cells=[
+                ft.DataCell(ft.Text("Banca")),
+                ft.DataCell(ft.Text("4")),
+                ft.DataCell(ft.Text("8")),
+                ft.DataCell(ft.Text("75"))
+            ]),
+            ft.DataRow(cells=[
+                ft.DataCell(ft.Text("Dominadas")),
+                ft.DataCell(ft.Text("3")),
+                ft.DataCell(ft.Text("2")),
+                ft.DataCell(ft.Text("40"))
+            ])
+        ]
+
+        tabla = ft.DataTable(columns=columnas, rows=filas)
+
+        return ft.Column([ft.Text("Tu Rutina", size=24, weight="bold"),
+        tabla
+        ], scroll=ft.ScrollMode.AUTO)
+
 #VISTA TÉCINICA DE CADA CLIENTE Y SUS DATOS       
     def vista_detalle_cliente(page, id_cliente):
         try:
@@ -218,6 +248,8 @@ async def main(page: ft.Page):
                     ft.Text(f"Sexo: {datos['sexo']}", size=18),
                     ft.Text(f"Objetivo principal: {datos['objetivo_patologias']}", size=18)
                 ], spacing=12),
+                ft.Divider(color=Colors.GREY_800),
+                crear_tabla(datos['nombre']),
                 ft.Divider(color=Colors.GREY_800),
                 ft.Button("Volver atrás", on_click=lambda e: page.go("/clientes"), bgcolor=Colors.ORANGE_300, color="white")
             ])
