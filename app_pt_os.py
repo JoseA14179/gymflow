@@ -29,11 +29,12 @@ def inicializar_db():
 
 #FUNCIÓN PARA LA BARRA DE NAVEGACIÓN
 def crear_barra_nav(page, indice_activo):
-    return ft.NavigationRail(
+    barra_lat = ft.NavigationRail(
         selected_index=indice_activo,
         label_type=ft.NavigationRailLabelType.ALL,
         min_width=100,
         min_extended_width=400,
+        group_alignment=-0.9,
         extended=False,
         destinations=[
             ft.NavigationRailDestination(icon=ft.Icons.HOME, label="Inicio"),
@@ -41,6 +42,8 @@ def crear_barra_nav(page, indice_activo):
         ],
         on_change=lambda e: al_cambiar_pestaña(e, page)
     )
+
+    return ft.SafeArea(content=barra_lat)
 
 #FUNCIÓN PARA GESTIONAR ACCIONES DE LA BARRA DE NAVEGACIÓN
 def al_cambiar_pestaña(e, page):
@@ -160,19 +163,8 @@ async def main(page: ft.Page):
 #VISTA PRINCIPAL     
     def vista_inicial(page):
             sidebar = crear_barra_nav(page, 0)
-            return ft.View(route="/", controls=[
-                ft.Row([
-                    ft.Text("Página principal", size=35, weight=ft.FontWeight.BOLD)
-                ], alignment=ft.MainAxisAlignment.CENTER),
-                ft.Row([
-                    sidebar,
-                    ft.VerticalDivider(width=1, color=Colors.GREY_300)
-                ], 
-                expand=True,
-                alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.STRETCH
-                ),
-                ft.Column([
+            cuerpo_principal = ft.Column([
+                    ft.Text("Página principal", size=35, weight=ft.FontWeight.BOLD),
                     entrada_nombre,
                     entrada_edad,
                     entrada_peso,
@@ -181,9 +173,21 @@ async def main(page: ft.Page):
                     ft.Button("Añadir Cliente", on_click=agregar_cliente, bgcolor=Colors.GREEN_300 , color="white"),
                     #ft.Button("Eliminar Cliente", on_click=eliminar_cliente, bgcolor=Colors.RED_300, color="white")
                 ], 
-                spacing=15,
-                horizontal_alignment=ft.MainAxisAlignment.CENTER)
-            ])
+                expand=True,
+                horizontal_alignment=ft.CrossAxisAlignment.START,
+                alignment=ft.MainAxisAlignment.START
+                )
+            
+            return ft.View(route="/", controls=[
+                ft.SafeArea(
+                    expand=True,
+                    content=ft.Row([
+                        sidebar,
+                        ft.VerticalDivider(width=1, color=Colors.GREY_300),
+                        cuerpo_principal
+                    ], expand=True)
+                )
+            ], padding=0)
 
 #VISTA DE LISTADO DE CLIENTES       
     def vista_clientes(page):
@@ -223,21 +227,27 @@ async def main(page: ft.Page):
                 cursor.close()
                 conexion.close()
 
+        cuerpo_clientes = ft.Column([
+            ft.Text("Clientes en el Sistema: ", size=25, weight=ft.FontWeight.BOLD),
+            *lista_contenedores_clientes,
+            ft.Divider(color=Colors.GREY_800)
+            ], 
+            horizontal_alignment=ft.CrossAxisAlignment.START,
+            alignment=ft.MainAxisAlignment.START,
+            expand=True,
+            scroll=ft.ScrollMode.AUTO)
+        
         return ft.View(route="/clientes", controls=[
-            ft.Row([ft.Text("Clientes en el Sistema: ", size=25, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([
-                    sidebar,
-                    ft.VerticalDivider(width=1, color=Colors.GREY_300)
-                ], 
+            ft.SafeArea(
                 expand=True,
-                vertical_alignment=ft.CrossAxisAlignment.STRETCH
-            ),
-            ft.Column([ 
-                *lista_contenedores_clientes,
-                ft.Divider(color=Colors.GREY_800)
-            ], horizontal_alignment=ft.MainAxisAlignment.CENTER)
-        ],
-    )
+                content=ft.Row([
+                    sidebar,
+                    ft.VerticalDivider(width=1, color=Colors.GREY_300),
+                    cuerpo_clientes
+                ], 
+                expand=True)
+            )
+        ], padding=0)
     
     #CREACIÓN DE TABLAS PARA LOS ENTRENAMIENTOS DE LOS CLIENTES
     def crear_tabla(nombre_cliente):
