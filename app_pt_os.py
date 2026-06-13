@@ -27,6 +27,27 @@ def inicializar_db():
     cursor.close()
     conexion.close()
 
+#FUNCIÓN PARA LA BARRA DE NAVEGACIÓN
+def crear_barra_nav(page, indice_activo):
+    return ft.NavigationRail(
+        selected_index=indice_activo,
+        label_type=ft.NavigationRailLabelType.ALL,
+        min_width=100,
+        min_extended_width=400,
+        extended=False,
+        destinations=[
+            ft.NavigationRailDestination(icon=ft.Icons.HOME, label="Inicio"),
+            ft.NavigationRailDestination(icon=ft.Icons.PEOPLE, label="Clientes")
+        ],
+        on_change=lambda e: al_cambiar_pestaña(e, page)
+    )
+
+#FUNCIÓN PARA GESTIONAR ACCIONES DE LA BARRA DE NAVEGACIÓN
+def al_cambiar_pestaña(e, page):
+    if e.control.selected_index == 0:
+        page.go("/")
+    elif e.control.selected_index == 1:
+        page.go("/clientes")
 
 #INTERFAZ DE FLET
 async def main(page: ft.Page):
@@ -138,21 +159,35 @@ async def main(page: ft.Page):
 
 #VISTA PRINCIPAL     
     def vista_inicial(page):
+            sidebar = crear_barra_nav(page, 0)
             return ft.View(route="/", controls=[
-                ft.Text("Página principal", size=25, weight=ft.FontWeight.BOLD),
-                ft.Button("Mostrar Clientes", on_click=mostrar_clientes, bgcolor=Colors.BLUE_400, color="white"),
-                ft.Divider(color=Colors.GREY_800),
-                entrada_nombre,
-                entrada_edad,
-                entrada_peso,
-                entrada_sexo,
-                entrada_meta, 
-                ft.Button("Añadir Cliente", on_click=agregar_cliente, bgcolor=Colors.GREEN_300 , color="white"),
-                ft.Button("Eliminar Cliente", on_click=eliminar_cliente, bgcolor=Colors.RED_300, color="white")
+                ft.Row([
+                    ft.Text("Página principal", size=35, weight=ft.FontWeight.BOLD)
+                ], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Row([
+                    sidebar,
+                    ft.VerticalDivider(width=1, color=Colors.GREY_300)
+                ], 
+                expand=True,
+                alignment=ft.MainAxisAlignment.START,
+                vertical_alignment=ft.CrossAxisAlignment.STRETCH
+                ),
+                ft.Column([
+                    entrada_nombre,
+                    entrada_edad,
+                    entrada_peso,
+                    entrada_sexo,
+                    entrada_meta,
+                    ft.Button("Añadir Cliente", on_click=agregar_cliente, bgcolor=Colors.GREEN_300 , color="white"),
+                    #ft.Button("Eliminar Cliente", on_click=eliminar_cliente, bgcolor=Colors.RED_300, color="white")
+                ], 
+                spacing=15,
+                horizontal_alignment=ft.MainAxisAlignment.CENTER)
             ])
-    
+
 #VISTA DE LISTADO DE CLIENTES       
     def vista_clientes(page):
+        sidebar = crear_barra_nav(page, 1)
         lista_contenedores_clientes = []
         try:
             conexion = conectar_db()
@@ -172,7 +207,7 @@ async def main(page: ft.Page):
                             ft.Icon(ft.Icons.PERSON_OUTLINE, color=ft.Colors.GREY_700, size=25),
                             ft.Text(f"{unombre} | {uid}", size=16, weight=ft.FontWeight.BOLD),
                             ft.Text(f"{uedad} años | {usexo} | {upeso} kg | {umeta}")
-                        ]), 
+                        ]),
                         bgcolor=Colors.BLUE_200, 
                         border_radius=12, 
                         padding=16, 
@@ -189,11 +224,20 @@ async def main(page: ft.Page):
                 conexion.close()
 
         return ft.View(route="/clientes", controls=[
-            ft.Text("Clientes en el Sistema: ", size=25, weight=ft.FontWeight.BOLD), 
-            *lista_contenedores_clientes,
-            ft.Divider(color=Colors.GREY_800),
-            ft.Button("Volver a Inicio", on_click=lambda e: page.go("/"))
-        ])
+            ft.Row([ft.Text("Clientes en el Sistema: ", size=25, weight=ft.FontWeight.BOLD)], alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([
+                    sidebar,
+                    ft.VerticalDivider(width=1, color=Colors.GREY_300)
+                ], 
+                expand=True,
+                vertical_alignment=ft.CrossAxisAlignment.STRETCH
+            ),
+            ft.Column([ 
+                *lista_contenedores_clientes,
+                ft.Divider(color=Colors.GREY_800)
+            ], horizontal_alignment=ft.MainAxisAlignment.CENTER)
+        ],
+    )
     
     #CREACIÓN DE TABLAS PARA LOS ENTRENAMIENTOS DE LOS CLIENTES
     def crear_tabla(nombre_cliente):
